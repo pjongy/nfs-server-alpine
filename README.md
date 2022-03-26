@@ -11,33 +11,9 @@ The image comprises of;
 
 [Confd](https://www.confd.io/) is no longer used, making the image simpler & smaller and providing wider device compatibility.
 
-For ARM versions, tag 6-arm is based on [hypriot/rpi-alpine](https://github.com/hypriot/rpi-alpine) and tag 7 onwards based on the stock Alpine image. Tag 7 uses confd v0.16.0.
-
-For previous tags 7, 8 & 9;
-
-- Alpine Linux v3.7.0
-- Musl v1.1.18
-- Confd v0.14.0
-
-For previous tag 6;
-
-- Alpine Linux v3.6.0
-- Musl v1.1.15
-
-For previous tag 5;
-
-- Confd v0.13.0
-
-For previous tag 4;
-
-- Alpine Linux v3.5
-- Confd v0.12.0-dev
-
-**Note:** There were some serious flaws with image versions 3 and earlier. Please use **4** or later. The earlier version are only here in case they are used in automated workflows.
-
 When run, this container will make whatever directory is specified by the environment variable SHARED_DIRECTORY available to NFS v4 clients.
 
-`docker run -d --name nfs --privileged -v /some/where/fileshare:/nfsshare -e SHARED_DIRECTORY=/nfsshare itsthenetwork/nfs-server-alpine:latest`
+`docker run -d --name nfs --privileged -v /some/where/fileshare:/nfsshare -e SHARED_DIRECTORY=/nfsshare pjongy/nfs-server-alpine:latest`
 
 Add `--net=host` or `-p 2049:2049` to make the shares externally accessible via the host networking stack. This isn't necessary if using [Rancher](https://rancher.com/) or linking containers in some other way.
 
@@ -64,6 +40,37 @@ The /etc/exports file contains these parameters unless modified by the environme
 `*(rw,fsid=0,async,no_subtree_check,no_auth_nlm,insecure,no_root_squash)`
 
 Note that the `showmount` command won't work against the server as rpcbind isn't running.
+
+### Multiple Shares
+
+This image can be used to export and share multiple directories with a little modification. Be aware that NFSv4 dictates that the additional shared directories are subdirectories of the root share specified by SHARED_DIRECTORY.
+
+> Note its far easier to volume mount multiple directories as subdirectories of the root/first and share the root.
+
+To share multiple directories you'll need to mount additional volumes and specify additional environment variables in your docker run command. Here's an example:
+```
+docker run -d --name nfs --privileged \
+  -v /some/where/fileshare:/nfsshare \
+  -v /some/where/else:/nfsshare/another \
+  -v /some/where/else:/nfsshare/another2 \
+  -e SHARED_DIRECTORY=/nfsshare \
+  -e SHARED_DIRECTORY_1=/nfsshare/another \
+  -e SHARED_DIRECTORY_2=/nfsshare/another2 \
+  pjongy/nfs-server-alpine:latest
+```
+
+You can share multiple directories via env vars starts with `SHARED_DIRECTORY_`
+
+
+You'll find you can now mount the root share as normal and the second shared directory will be available as a subdirectory. However, you should now be able to mount the second share directly too. In both cases you don't need to specify the root directory name with the mount commands. Using the `docker run` command above to start a container using this image, the two mount commands would be:
+
+```
+sudo mount -v 10.11.12.101:/ /mnt/one
+sudo mount -v 10.11.12.101:/another /mnt/two
+sudo mount -v 10.11.12.101:/another2 /mnt/three
+```
+
+You might want to make the root share read only, or even make it inaccessible, to encourage users to only mount the correct, more specific shares directly. To do so you'll need to modify the exports file so the root share doesn't get configured based on the values assigned to the PERMITTED or SYNC environment variables.
 
 ### Privileged Mode
 
@@ -156,37 +163,6 @@ You'll need to use this label if you are using host network mode and want other 
 ### Mounting Within a Container
 
 The container requires the SYS_ADMIN capability, or, less securely, to be run in privileged mode.
-
-### Multiple Shares
-
-This image can be used to export and share multiple directories with a little modification. Be aware that NFSv4 dictates that the additional shared directories are subdirectories of the root share specified by SHARED_DIRECTORY.
-
-> Note its far easier to volume mount multiple directories as subdirectories of the root/first and share the root.
-
-To share multiple directories you'll need to mount additional volumes and specify additional environment variables in your docker run command. Here's an example:
-```
-docker run -d --name nfs --privileged \
-  -v /some/where/fileshare:/nfsshare \
-  -v /some/where/else:/nfsshare/another \
-  -v /some/where/else:/nfsshare/another2 \
-  -e SHARED_DIRECTORY=/nfsshare \
-  -e SHARED_DIRECTORY_1=/nfsshare/another \
-  -e SHARED_DIRECTORY_2=/nfsshare/another2 \
-  itsthenetwork/nfs-server-alpine:latest
-```
-
-You can share multiple directories via env vars starts with `SHARED_DIRECTORY_`
-
-
-You'll find you can now mount the root share as normal and the second shared directory will be available as a subdirectory. However, you should now be able to mount the second share directly too. In both cases you don't need to specify the root directory name with the mount commands. Using the `docker run` command above to start a container using this image, the two mount commands would be:
-
-```
-sudo mount -v 10.11.12.101:/ /mnt/one
-sudo mount -v 10.11.12.101:/another /mnt/two
-sudo mount -v 10.11.12.101:/another2 /mnt/three
-```
-
-You might want to make the root share read only, or even make it inaccessible, to encourage users to only mount the correct, more specific shares directly. To do so you'll need to modify the exports file so the root share doesn't get configured based on the values assigned to the PERMITTED or SYNC environment variables.
 
 ### What Good Looks Like
 
