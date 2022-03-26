@@ -20,32 +20,34 @@ stop()
   exit
 }
 
-# Check if the SHARED_DIRECTORY variable is empty
-if [ -z "${SHARED_DIRECTORY}" ]; then
-  echo "The SHARED_DIRECTORY environment variable is unset or null, exiting..."
-  exit 1
-else
-  echo "Writing SHARED_DIRECTORY to /etc/exports file"
-  /bin/sed -i "s@{{SHARED_DIRECTORY}}@${SHARED_DIRECTORY}@g" /etc/exports
+# Check initialize neended
+cat /etc/exports | grep '{{'
+if [ $? = 0 ]; then
+    # Check if the SHARED_DIRECTORY variable is empty
+    if [ -z "${SHARED_DIRECTORY}" ]; then
+      echo "The SHARED_DIRECTORY environment variable is unset or null, exiting..."
+      exit 1
+    else
+      echo "Writing SHARED_DIRECTORY to /etc/exports file"
+      /bin/sed -i "s@{{SHARED_DIRECTORY}}@${SHARED_DIRECTORY}@g" /etc/exports
+    fi
+
+    # This is here to demonsrate how multiple directories can be shared. You
+    # would need a block like this for each extra share.
+    # Any additional shares MUST be subdirectories of the root directory specified
+    # by SHARED_DIRECTORY.
+
+    SHARED_DIRECTORIES=$(compgen -A variable|grep SHARED_DIRECTORY_)
+    echo 'configure-exports called!'
+    for dir in $SHARED_DIRECTORIES
+    do
+        # Check if the SHARED_DIRECTORY_xx variable is empty
+        if [ ! -z "${!dir}" ]; then
+          echo "{{SHARED_DIRECTORY_}} {{PERMITTED}}({{READ_ONLY}},{{SYNC}},no_subtree_check,no_auth_nlm,insecure,no_root_squash)" >> /etc/exports
+          /bin/sed -i "s@{{SHARED_DIRECTORY_}}@${!dir}@g" /etc/exports
+        fi
+    done>>/etc/exports
 fi
-
-# This is here to demonsrate how multiple directories can be shared. You
-# would need a block like this for each extra share.
-# Any additional shares MUST be subdirectories of the root directory specified
-# by SHARED_DIRECTORY.
-
-SHARED_DIRECTORIES=$(compgen -A variable|grep SHARED_DIRECTORY_)
-echo 'configure-exports called!'
-for dir in $SHARED_DIRECTORIES
-do
-
-# Check if the SHARED_DIRECTORY_xx variable is empty
-if [ ! -z "${!dir}" ]; then
-  echo "{{SHARED_DIRECTORY_}} {{PERMITTED}}({{READ_ONLY}},{{SYNC}},no_subtree_check,no_auth_nlm,insecure,no_root_squash)" >> /etc/exports
-  /bin/sed -i "s@{{SHARED_DIRECTORY_}}@${!dir}@g" /etc/exports
-fi
-
-done>>/etc/exports
 
 # Check if the PERMITTED variable is empty
 if [ -z "${PERMITTED}" ]; then
