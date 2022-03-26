@@ -34,12 +34,18 @@ fi
 # Any additional shares MUST be subdirectories of the root directory specified
 # by SHARED_DIRECTORY.
 
-# Check if the SHARED_DIRECTORY_2 variable is empty
-if [ ! -z "${SHARED_DIRECTORY_2}" ]; then
-  echo "Writing SHARED_DIRECTORY_2 to /etc/exports file"
-  echo "{{SHARED_DIRECTORY_2}} {{PERMITTED}}({{READ_ONLY}},{{SYNC}},no_subtree_check,no_auth_nlm,insecure,no_root_squash)" >> /etc/exports
-  /bin/sed -i "s@{{SHARED_DIRECTORY_2}}@${SHARED_DIRECTORY_2}@g" /etc/exports
+SHARED_DIRECTORIES=$(compgen -A variable|grep SHARED_DIRECTORY_)
+echo 'configure-exports called!'
+for dir in $SHARED_DIRECTORIES
+do
+
+# Check if the SHARED_DIRECTORY_xx variable is empty
+if [ ! -z "${!dir}" ]; then
+  echo "{{SHARED_DIRECTORY_}} {{PERMITTED}}({{READ_ONLY}},{{SYNC}},no_subtree_check,no_auth_nlm,insecure,no_root_squash)" >> /etc/exports
+  /bin/sed -i "s@{{SHARED_DIRECTORY_}}@${!dir}@g" /etc/exports
 fi
+
+done>>/etc/exports
 
 # Check if the PERMITTED variable is empty
 if [ -z "${PERMITTED}" ]; then
